@@ -2,8 +2,9 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>3D Scene with Oculus Support</title>
+  <title>3D Scene with Oculus Support, Drag Movement, and Visible Quest Controllers</title>
   <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+  <script src="https://cdn.rawgit.com/donmccurdy/aframe-extras/v6.0.0/dist/aframe-extras.min.js"></script>
 </head>
 <body>
   <a-scene vr-mode-ui="enabled: true">
@@ -11,13 +12,50 @@
       <!-- Load your 3D scene assets here -->
       <a-asset-item id="model" src="neon_sign.glb"></a-asset-item>
     </a-assets>
-    
-    <a-entity position="0 1.6 0">
+
+    <a-entity position="0 1.6 0" grabbable>
       <!-- Set up your 3D scene here -->
       <a-entity gltf-model="#model"></a-entity>
     </a-entity>
-    
-    <a-camera position="0 1.6 0"></a-camera>
+
+    <a-entity vive-controls="hand: right"></a-entity>
+    <a-entity vive-controls="hand: left"></a-entity>
+
+    <a-camera position="0 1.6 0" look-controls wasd-controls></a-camera>
   </a-scene>
+
+  <script>
+    AFRAME.registerComponent('grabbable', {
+      init: function () {
+        this.el.addEventListener('grab-start', this.onGrabStart.bind(this));
+        this.el.addEventListener('grab-end', this.onGrabEnd.bind(this));
+      },
+      onGrabStart: function (event) {
+        const intersection = event.detail.intersection;
+        const object = this.el.object3D;
+        const controller = event.detail.hand;
+        const offset = new THREE.Vector3().subVectors(intersection.point, object.position);
+
+        controller.userData.offset = offset;
+        controller.userData.object = object;
+      },
+      onGrabEnd: function (event) {
+        const controller = event.detail.hand;
+        if (controller.userData.object) {
+          controller.userData.object = null;
+        }
+      },
+      tick: function () {
+        const controller = this.el.sceneEl.systems['tracked-controls-webxr'].controllers.find(controller => controller.hand === 'right');
+        if (!controller.userData.object) return;
+        
+        const intersection = controller.getIntersection(this.el.object3D);
+        if (!intersection) return;
+        
+        const position = new THREE.Vector3().addVectors(intersection.point, controller.userData.offset);
+        controller.userData.object.position.copy(position);
+      }
+    });
+  </script>
 </body>
 </html>
